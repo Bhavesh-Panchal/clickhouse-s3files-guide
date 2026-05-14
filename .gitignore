@@ -1,0 +1,28 @@
+# Kubernetes secrets
+*secret*.yaml
+*credentials*.yaml
+
+# Backup files
+*.backup
+backup-*/
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Config with sensitive data
+config.yaml

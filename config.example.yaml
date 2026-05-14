@@ -1,0 +1,23 @@
+# Example configuration file
+# Copy this to config.yaml and fill in your values
+
+aws:
+  region: us-east-1
+  filesystem_id: fs-XXXXXXXXX  # Replace with your S3 Files filesystem ID
+  mount_target_ip: 10.0.1.100  # Replace with your mount target IP
+  
+kubernetes:
+  namespace: production
+  storageclass_name: s3files-sc
+  pv_name: clickhouse-s3files-pv
+  pvc_name: clickhouse-data-pvc
+  
+clickhouse:
+  cluster_name: my-cluster
+  storage_size: 500Gi
+  backup_before_migration: true
+  
+migration:
+  strategy: in-place  # Options: in-place, blue-green, data-copy
+  downtime_window: 5m
+  rollback_enabled: true
