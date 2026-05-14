@@ -1,148 +1,190 @@
 # Kubernetes Manifests for ClickHouse S3 Files
 
-## StorageClass
+This directory contains production-ready Kubernetes manifests for deploying ClickHouse with S3 Files storage.
 
-```yaml
-# kubernetes/storageclass.yaml
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: s3files-sc
-provisioner: efs.csi.aws.com
-parameters:
-  provisioningMode: efs-ap
-  fileSystemId: fs-REPLACE_WITH_YOUR_FILESYSTEM_ID
-  directoryPerms: "700"
-  gidRangeStart: "1000"
-  gidRangeEnd: "2000"
-  basePath: "/clickhouse"
-mountOptions:
-  - tls
-  - iam
-reclaimPolicy: Retain
-volumeBindingMode: Immediate
+## 📁 Files
+
+- `storageclass.yaml` - S3 Files StorageClass configuration
+- `persistentvolume.yaml` - PersistentVolume for S3 Files
+- `clickhouse-statefulset.yaml` - ClickHouse StatefulSet example
+- `clickhouse-service.yaml` - ClickHouse Service
+
+## 🚀 Quick Start
+
+### 1. Update Configuration
+
+Replace placeholders in the YAML files:
+
+```bash
+# Set your values
+export FILESYSTEM_ID="fs-abc123def456"
+export MOUNT_TARGET_IP="10.0.1.100"
+export NAMESPACE="production"
+
+# Update all files
+sed -i "s/REPLACE_WITH_YOUR_FILESYSTEM_ID/$FILESYSTEM_ID/g" *.yaml
+sed -i "s/REPLACE_WITH_YOUR_MOUNT_TARGET_IP/$MOUNT_TARGET_IP/g" *.yaml
+sed -i "s/production/$NAMESPACE/g" *.yaml
 ```
 
-## PersistentVolume
+### 2. Apply Manifests
 
-```yaml
-# kubernetes/persistentvolume.yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: clickhouse-s3files-pv
-  labels:
-    app: clickhouse
-    storage: s3files
-spec:
-  capacity:
-    storage: 500Gi
-  volumeMode: Filesystem
-  accessModes:
-    - ReadWriteMany
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: s3files-sc
-  csi:
-    driver: efs.csi.aws.com
-    volumeHandle: s3files:fs-REPLACE_WITH_YOUR_FILESYSTEM_ID
-    volumeAttributes:
-      mounttargetip: "REPLACE_WITH_YOUR_MOUNT_TARGET_IP"
-  claimRef:
-    namespace: production
-    name: data-volume-clickhouse-0
+```bash
+# Apply in order
+kubectl apply -f storageclass.yaml
+kubectl apply -f persistentvolume.yaml
+kubectl apply -f clickhouse-statefulset.yaml
+kubectl apply -f clickhouse-service.yaml
 ```
 
-## ClickHouse StatefulSet Example
+### 3. Verify Deployment
+
+```bash
+# Check all resources
+kubectl get pv,pvc,pods,svc -n production
+
+# Check ClickHouse logs
+kubectl logs clickhouse-0 -n production -f
+```
+
+## 📋 Manifest Details
+
+### StorageClass (`storageclass.yaml`)
+
+Creates the S3 Files StorageClass with:
+- EFS CSI driver provisioner
+- NFS mount options (TLS, IAM)
+- Retain reclaim policy
+
+### PersistentVolume (`persistentvolume.yaml`)
+
+Pre-creates PV with:
+- 500Gi capacity
+- ReadWriteMany access mode
+- Binding to specific PVC via claimRef
+
+### StatefulSet (`clickhouse-statefulset.yaml`)
+
+Deploys ClickHouse with:
+- ClickHouse 25.5.1
+- 2 CPU / 4Gi memory (requests)
+- 4 CPU / 8Gi memory (limits)
+- S3 Files volume mount
+
+### Service (`clickhouse-service.yaml`)
+
+Exposes ClickHouse:
+- Port 9000 (native protocol)
+- Port 8123 (HTTP interface)
+
+## 🔧 Customization
+
+### Change Storage Size
+
+Edit `clickhouse-statefulset.yaml`:
 
 ```yaml
-# kubernetes/examples/clickhouse-statefulset.yaml
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: clickhouse
-  namespace: production
-spec:
-  serviceName: clickhouse
-  replicas: 1
-  selector:
-    matchLabels:
-      app: clickhouse
-  template:
-    metadata:
-      labels:
-        app: clickhouse
-    spec:
-      containers:
-      - name: clickhouse
-        image: clickhouse/clickhouse-server:25.5.1
-        ports:
-        - containerPort: 9000
-          name: native
-        - containerPort: 8123
-          name: http
-        volumeMounts:
-        - name: data-volume
-          mountPath: /var/lib/clickhouse
-        resources:
-          requests:
-            cpu: "2"
-            memory: "4Gi"
-          limits:
-            cpu: "4"
-            memory: "8Gi"
-  volumeClaimTemplates:
+volumeClaimTemplates:
   - metadata:
       name: data-volume
     spec:
-      accessModes:
-        - ReadWriteMany
-      storageClassName: s3files-sc
       resources:
         requests:
-          storage: 500Gi
+          storage: 1Ti  # Change this
 ```
 
-## ClickHouse Service
+### Change Resources
+
+Edit `clickhouse-statefulset.yaml`:
 
 ```yaml
-# kubernetes/examples/clickhouse-service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: clickhouse
-  namespace: production
-spec:
-  type: ClusterIP
-  ports:
-  - port: 9000
-    targetPort: 9000
-    name: native
-  - port: 8123
-    targetPort: 8123
-    name: http
-  selector:
-    app: clickhouse
+resources:
+  requests:
+    cpu: "4"      # Change this
+    memory: "8Gi" # Change this
+  limits:
+    cpu: "8"      # Change this
+    memory: "16Gi" # Change this
 ```
 
-## Apply Instructions
+### Change Namespace
 
 ```bash
-# 1. Update filesystem ID and mount target IP in the manifests
-sed -i 's/REPLACE_WITH_YOUR_FILESYSTEM_ID/fs-abc123def456/g' kubernetes/*.yaml
-sed -i 's/REPLACE_WITH_YOUR_MOUNT_TARGET_IP/10.0.1.100/g' kubernetes/*.yaml
-
-# 2. Apply StorageClass
-kubectl apply -f kubernetes/storageclass.yaml
-
-# 3. Apply PersistentVolume
-kubectl apply -f kubernetes/persistentvolume.yaml
-
-# 4. Apply ClickHouse StatefulSet
-kubectl apply -f kubernetes/examples/clickhouse-statefulset.yaml
-
-# 5. Apply ClickHouse Service
-kubectl apply -f kubernetes/examples/clickhouse-service.yaml
-
-# 6. Verify
-kubectl get pv,pvc,pods -n production
+# Update all files
+sed -i 's/production/YOUR_NAMESPACE/g' *.yaml
 ```
+
+## ✅ Verification
+
+After applying manifests:
+
+```bash
+# 1. Check PV status
+kubectl get pv clickhouse-s3files-pv
+# Expected: STATUS = Bound or Available
+
+# 2. Check PVC status
+kubectl get pvc -n production
+# Expected: STATUS = Bound
+
+# 3. Check pod status
+kubectl get pods -n production
+# Expected: STATUS = Running
+
+# 4. Check S3 Files mount
+kubectl exec clickhouse-0 -n production -- df -h | grep clickhouse
+# Expected: Shows EFS mount
+
+# 5. Test ClickHouse
+kubectl exec clickhouse-0 -n production -- clickhouse-client --query "SELECT 1"
+# Expected: Returns 1
+```
+
+## 🐛 Troubleshooting
+
+### PVC Stuck in Pending
+
+```bash
+# Check PV
+kubectl get pv clickhouse-s3files-pv
+
+# Check events
+kubectl describe pvc -n production
+
+# Solution: Verify claimRef matches PVC name
+```
+
+### Pod CrashLoopBackOff
+
+```bash
+# Check logs
+kubectl logs clickhouse-0 -n production
+
+# Check mount
+kubectl describe pod clickhouse-0 -n production
+
+# Solution: Check EFS CSI driver is running
+kubectl get pods -n kube-system | grep efs-csi
+```
+
+### Mount Failed
+
+```bash
+# Check EFS CSI driver logs
+kubectl logs -n kube-system -l app=efs-csi-controller
+
+# Solution: Verify filesystem ID and mount target IP are correct
+```
+
+## 📚 Additional Resources
+
+- [Manual Setup Guide](../docs/manual-setup-guide.md)
+- [Migration Guide](../docs/migration-guide.md)
+- [Troubleshooting Guide](../docs/troubleshooting.md)
+
+## 🔗 Related Scripts
+
+- `../scripts/setup-aws.sh` - Create S3 Files filesystem
+- `../scripts/migrate.sh` - Automated migration
+- `../scripts/verify.sh` - Verify setup
+- `../scripts/rollback.sh` - Rollback to EBS
