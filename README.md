@@ -77,11 +77,22 @@ kubectl apply -f kubernetes/
 
 ### Getting Started
 
-1. [Prerequisites](docs/prerequisites.md) - System requirements and setup
-2. [AWS Setup](docs/aws-setup.md) - Create S3 Files filesystem
-3. [Kubernetes Configuration](docs/kubernetes-setup.md) - Deploy EFS CSI driver
-4. [ClickHouse Migration](docs/migration-guide.md) - Step-by-step migration
-5. [Verification](docs/verification.md) - Test and validate
+**Choose Your Approach:**
+
+#### 🔧 Manual Setup (Step-by-Step)
+Perfect for learning and understanding each component:
+1. [Manual Setup Guide](docs/manual-setup-guide.md) - Complete manual configuration
+   - AWS S3 Files creation
+   - Kubernetes configuration
+   - ClickHouse integration
+   - Verification and testing
+
+#### 🚀 Automated Setup (Quick Start)
+Perfect for production deployments:
+1. [Migration Guide](docs/migration-guide.md) - Automated migration with scripts
+   - Pre-built automation scripts
+   - Multiple migration strategies
+   - Rollback procedures
 
 ### Advanced Topics
 
